@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Auto Shorts Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0f1a;
+      --surface: #111827;
+      --card: #1a2235;
+      --border: #2a3650;
+      --accent: #6366f1;
+      --accent2: #8b5cf6;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --radius: 14px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      padding: 22px 40px;
+      background: rgba(17,24,39,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header .logo {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.3px; }
+    header .badge {
+      margin-left: auto;
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #a5b4fc;
+      letter-spacing: 0.5px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 820px;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: rgba(99,102,241,0.4); }
+
+    .card h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2 .step-num {
+      width: 22px; height: 22px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 48px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(99,102,241,0.05);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer;
+    }
+    .drop-zone .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .drop-zone p { color: var(--muted); font-size: 0.9rem; }
+    .drop-zone p span { color: var(--accent); font-weight: 500; }
+    #selected-file { margin-top: 10px; font-size: 0.85rem; color: var(--green); font-weight: 500; }
+
+    /* Inputs */
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 7px;
+      letter-spacing: 0.3px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: var(--accent); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 22px;
+      border: none;
+      border-radius: 9px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(99,102,241,0.35); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* Progress bar */
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-top: 14px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar.visible { display: block; }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+    .progress-indeterminate .progress-fill {
+      width: 40%;
+      animation: slide 1.2s infinite ease-in-out;
+    }
+    @keyframes slide {
+      0% { transform: translateX(-200%); }
+      100% { transform: translateX(350%); }
+    }
+
+    /* Status log */
+    .log {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 0.82rem;
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .log-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .log-entry .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      margin-top: 5px; flex-shrink: 0;
+    }
+    .dot-success { background: var(--green); }
+    .dot-error { background: var(--red); }
+    .dot-info { background: var(--accent); }
+    .dot-warn { background: var(--yellow); }
+
+    /* Shorts list */
+    .shorts-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .short-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      border-radius: 8px;
+    }
+    .short-meta {
+      flex: 1;
+    }
+    .short-name {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+    .short-info {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .short-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* API status */
+    .api-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .api-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--yellow);
+      transition: background 0.3s;
+    }
+    .api-dot.online { background: var(--green); animation: pulse 2s infinite; }
+    .api-dot.offline { background: var(--red); }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+      50% { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+    }
+
+    .placeholder { color: var(--muted); font-style: italic; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🎬</div>
+  <h1>Auto Shorts Generator</h1>
+  <div class="api-status">
+    <div class="api-dot" id="api-dot"></div>
+    <span id="api-status-text">Checking server...</span>
+  </div>
+  <div class="badge">BETA</div>
+</header>
+
+<div class="container">
+
+  <!-- Step 1: Upload -->
+  <div class="card">
+    <h2><span class="step-num">1</span>Upload Long Video</h2>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept="video/*"/>
+      <div class="icon">📁</div>
+      <p>Drag & drop your video here, or <span>browse</span></p>
+      <p id="selected-file"></p>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn btn-primary" id="upload-btn" onclick="uploadVideo()" disabled>
+        ⬆️ Upload Video
+      </button>
+    </div>
+    <div class="progress-bar progress-indeterminate" id="upload-progress">
+      <div class="progress-fill"></div>
+    </div>
+  </div>
+
+  <!-- Step 2: Auto-generate Shorts -->
+  <div class="card">
+    <h2><span class="step-num">2</span>Generate Shorts</h2>
+    <p style="font-size:0.85rem; color:var(--muted); margin-bottom:16px">
+      Automatically split the video into short clips based on duration.
+    </p>
+    <div class="form-group">
+      <label>Target seconds per short (default: 45)</label>
+      <input id="auto-target" type="number" value="45" min="15" max="120"/>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="auto-btn" onclick="autoGenerateShorts()" disabled>
+        ⚡ Generate Shorts
+      </button>
+      <button class="btn btn-secondary" id="view-shorts-btn" onclick="listShorts()">
+        📁 View All Shorts
+      </button>
+    </div>
+    <div class="progress-bar progress-indeterminate" id="auto-progress">
+      <div class="progress-fill"></div>
+    </div>
+  </div>
+
+  <!-- Generated Shorts -->
+  <div class="card">
+    <h2>Generated Shorts</h2>
+    <div id="shorts-list" style="min-height:60px">
+      <p class="placeholder">No shorts generated yet. Upload a video and click "Generate Shorts".</p>
+    </div>
+  </div>
+
+  <!-- Activity Log -->
+  <div class="card">
+    <h2>Activity Log</h2>
+    <div class="log" id="log">
+      <div class="log-entry">
+        <div class="dot dot-info"></div>
+        <span>Ready to generate shorts...</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = "http://localhost:8000";
+  let uploadedFilename = null;
+
+  // ── API health check ──────────────────────────────────────────────
+  async function checkAPI() {
+    const dot = document.getElementById("api-dot");
+    const txt = document.getElementById("api-status-text");
+    try {
+      const r = await fetch(API + "/", { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        dot.className = "api-dot online";
+        txt.textContent = "Server online";
+      } else { throw new Error(); }
+    } catch {
+      dot.className = "api-dot offline";
+      txt.textContent = "Server offline";
+    }
+  }
+  checkAPI();
+  setInterval(checkAPI, 5000);
+
+  // ── Drag-and-drop ─────────────────────────────────────────────────
+  const dz = document.getElementById("drop-zone");
+  const fi = document.getElementById("file-input");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault();
+    dz.classList.remove("drag-over");
+    if (e.dataTransfer.files[0]) {
+      fi.files = e.dataTransfer.files;
+      onFileSelected();
+    }
+  });
+  fi.addEventListener("change", onFileSelected);
+
+  function onFileSelected() {
+    const f = fi.files[0];
+    if (f) {
+      document.getElementById("selected-file").textContent = "📎 " + f.name + " (" + (f.size / 1024 / 1024).toFixed(1) + " MB)";
+      document.getElementById("upload-btn").disabled = false;
+    }
+  }
+
+  // ── Logging ───────────────────────────────────────────────────────
+  function log(msg, type = "info") {
+    const logEl = document.getElementById("log");
+    const entry = document.createElement("div");
+    entry.className = "log-entry";
+    entry.innerHTML = `<div class="dot dot-${type}"></div><span>${msg}</span>`;
+    if (logEl.children.length === 1 && logEl.children[0].textContent.includes("Ready to")) {
+      logEl.innerHTML = "";
+    }
+    logEl.appendChild(entry);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function showProgress(id) {
+    document.getElementById(id).classList.add("visible");
+  }
+  function hideProgress(id) {
+    document.getElementById(id).classList.remove("visible");
+  }
+
+  // ── Upload ────────────────────────────────────────────────────────
+  async function uploadVideo() {
+    const file = fi.files[0];
+    if (!file) return;
+    document.getElementById("upload-btn").disabled = true;
+    showProgress("upload-progress");
+    log("Uploading " + file.name + "...", "info");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(API + "/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.status === "success") {
+        uploadedFilename = data.filename;
+        log("✅ Uploaded: " + uploadedFilename + " (" + data.duration_formatted + ")", "success");
+        document.getElementById("auto-btn").disabled = false;
+      } else {
+        log("❌ Upload failed: " + JSON.stringify(data), "error");
+      }
+    } catch (e) {
+      log("❌ Upload error: " + e.message, "error");
+    }
+    hideProgress("upload-progress");
+    document.getElementById("upload-btn").disabled = false;
+  }
+
+  // ── Auto-generate shorts ──────────────────────────────────────────
+  async function autoGenerateShorts() {
+    if (!uploadedFilename) { log("Upload a video first!", "warn"); return; }
+    const target = parseInt(document.getElementById("auto-target").value || "45", 10);
+    document.getElementById("auto-btn").disabled = true;
+    showProgress("auto-progress");
+    log("Auto-generating shorts...", "info");
+    try {
+      const url = `${API}/auto-shorts?filename=${encodeURIComponent(uploadedFilename)}&target_duration=${target}`;
+      const res = await fetch(url, { method: "POST" });
+      const data = await res.json();
+      if (data.shorts && data.shorts.length > 0) {
+        log(`✅ Generated ${data.total_shorts} shorts from the video.`, "success");
+        renderShortsList(data.shorts);
+      } else {
+        log("❌ No shorts created: " + (data.error || JSON.stringify(data)), "error");
+      }
+    } catch (e) {
+      log("❌ Auto-generate error: " + e.message, "error");
+    }
+    hideProgress("auto-progress");
+    document.getElementById("auto-btn").disabled = false;
+  }
+
+  // ── List all generated shorts ─────────────────────────────────────
+  async function listShorts() {
+    try {
+      const res = await fetch(API + "/list-shorts");
+      const data = await res.json();
+      if (data.shorts && data.shorts.length > 0) {
+        log(`📁 Found ${data.count} generated shorts.`, "info");
+        renderShortsList(data.shorts);
+      } else {
+        log("No shorts found.", "warn");
+        document.getElementById("shorts-list").innerHTML = '<p class="placeholder">No shorts available.</p>';
+      }
+    } catch (e) {
+      log("Error listing shorts: " + e.message, "error");
+    }
+  }
+
+  function renderShortsList(shorts) {
+    const container = document.getElementById("shorts-list");
+    container.innerHTML = "";
+    const grid = document.createElement("div");
+    grid.className = "shorts-grid";
+
+    shorts.forEach(s => {
+      const item = document.createElement("div");
+      item.className = "short-item";
+
+      const meta = document.createElement("div");
+      meta.className = "short-meta";
+      meta.innerHTML = `
+        <div class="short-name">${s.filename}</div>
+        <div class="short-info">
+          ${s.file_size_mb ? s.file_size_mb + ' MB • ' : ''}${s.duration_formatted || s.duration || 'N/A'}
+        </div>
+      `;
+
+      const actions = document.createElement("div");
+      actions.className = "short-actions";
+
+      const dl = document.createElement("a");
+      dl.className = "btn btn-secondary";
+      dl.href = API + (s.download_url || `/download/${s.filename}`);
+      dl.download = s.filename;
+      dl.target = "_blank";
+      dl.textContent = "⬇️ Download";
+
+      actions.appendChild(dl);
+      item.appendChild(meta);
+      item.appendChild(actions);
+      grid.appendChild(item);
+    });
+
+    container.appendChild(grid);
+  }
+</script>
+</body>
+</html>

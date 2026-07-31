@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>⚡ Ultra-Fast Shorts</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 2em; margin-bottom: 10px; }
+    .subtitle { color: #aaa; margin-bottom: 30px; font-size: 0.9em; }
+    
+    .section { 
+      background: #2a2a2a; 
+      border: 1px solid #444; 
+      border-radius: 8px; 
+      padding: 20px; 
+      margin-bottom: 20px;
+    }
+    .section h2 { font-size: 1.1em; margin-bottom: 15px; color: #4ade80; }
+    
+    input, button { 
+      padding: 12px 16px; 
+      border: 1px solid #444; 
+      border-radius: 6px; 
+      font-size: 1em; 
+      margin-bottom: 10px;
+    }
+    input {
+      background: #1a1a1a;
+      color: #fff;
+      width: 100%;
+    }
+    input::file-selector-button {
+      background: #333;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+    button {
+      background: #4ade80;
+      color: #000;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      border: none;
+    }
+    button:hover { background: #22c55e; }
+    button:disabled { background: #666; cursor: not-allowed; }
+    
+    .progress-container {
+      margin: 15px 0;
+      display: none;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 5px;
+    }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #4ade80, #22c55e); width: 0%; transition: width 0.3s; }
+    .progress-text { font-size: 0.9em; color: #aaa; display: flex; justify-content: space-between; }
+    
+    .status { 
+      padding: 12px; 
+      border-radius: 6px; 
+      margin: 10px 0;
+      font-size: 0.9em;
+    }
+    .status.info { background: #1e40af; color: #93c5fd; }
+    .status.success { background: #15803d; color: #86efac; }
+    .status.error { background: #7f1d1d; color: #fca5a5; }
+    
+    .shorts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .short-card {
+      background: #333;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+    .short-card a {
+      color: #4ade80;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .short-card a:hover { text-decoration: underline; }
+    
+    .log {
+      background: #0a0a0a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 12px;
+      height: 150px;
+      overflow-y: auto;
+      font-size: 0.85em;
+      color: #aaa;
+      font-family: monospace;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <h1>⚡ Ultra-Fast Shorts</h1>
+  <div class="subtitle">2GB in 1-2 minutes | Fixed-length clips | Stream copy encoding</div>
+
+  <!-- UPLOAD -->
+  <div class="section">
+    <h2>1️⃣ Upload Video</h2>
+    <input type="file" id="fileInput" accept="video/*" />
+    <button id="uploadBtn" onclick="uploadFile()">📤 Upload</button>
+    <div id="uploadStatus"></div>
+    <div class="progress-container" id="uploadProgressContainer">
+      <div class="progress-bar"><div class="progress-fill" id="uploadProgressFill"></div></div>
+      <div class="progress-text"><span id="uploadProgressText">0%</span><span id="uploadSize"></span></div>
+    </div>
+  </div>
+
+  <!-- GENERATE -->
+  <div class="section">
+    <h2>2️⃣ Generate Shorts</h2>
+    <label>Target clip duration (seconds): </label>
+    <input type="number" id="duration" value="45" min="10" max="300" />
+    <button id="generateBtn" onclick="generateShorts()" disabled>⚡ Generate Shorts</button>
+    <div id="generateStatus"></div>
+    <div class="progress-container" id="generateProgressContainer">
+      <div class="progress-bar"><div class="progress-fill" id="generateProgressFill"></div></div>
+      <div class="progress-text"><span id="generateProgressText">0%</span><span id="generateClipText"></span></div>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="section">
+    <h2>3️⃣ Download Results</h2>
+    <button id="downloadAllBtn" onclick="downloadAllZip()" style="display: none;">📦 Download All as ZIP</button>
+    <button id="clearBtn" onclick="clearOutputs()" style="display: none;">🗑️ Clear All</button>
+    <div id="shorts" class="shorts-grid"></div>
+  </div>
+
+  <script>
+    const API = "http://127.0.0.1:8000";
+    let uploadedFilename = null;
+    let progressCheckInterval = null;
+
+    function log(msg) {
+      const el = document.getElementById("log");
+      el.textContent += new Date().toLocaleTimeString() + " → " + msg + "\n";
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function status(id, type, msg) {
+      const el = document.getElementById(id);
+      el.className = "status " + type;
+      el.textContent = msg;
+    }
+
+    async function uploadFile() {
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) {
+        status("uploadStatus", "error", "❌ Select a file first");
+        return;
+      }
+
+      document.getElementById("uploadBtn").disabled = true;
+      const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+      status("uploadStatus", "info", `⏳ Starting chunked upload for ${file.name} (${sizeMB}MB)...`);
+      log(`Starting parallel chunked upload for ${file.name} (${sizeMB}MB)`);
+
+      // Show upload progress
+      const container = document.getElementById("uploadProgressContainer");
+      container.style.display = "block";
+      updateUploadProgress(0);
+
+      const chunkSize = 10 * 1024 * 1024; // 10MB chunks
+      const totalChunks = Math.ceil(file.size / chunkSize);
+      const uploadId = Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+      
+      let chunkProgress = {}; // maps chunkIndex -> bytesUploaded
+      
+      function updateOverallProgress() {
+        let totalUploaded = 0;
+        for (let i = 0; i < totalChunks; i++) {
+          totalUploaded += chunkProgress[i] || 0;
+        }
+        const percent = Math.min(99, (totalUploaded / file.size) * 100);
+        updateUploadProgress(percent);
+      }
+      
+      let chunkIndex = 0;
+      const maxConcurrency = 3;
+      let activeUploads = 0;
+      let failed = false;
+
+      return new Promise((resolve, reject) => {
+        function uploadNext() {
+          if (failed) return;
+          if (chunkIndex >= totalChunks) {
+            if (activeUploads === 0) {
+              mergeChunks();
+            }
+            return;
+          }
+          
+          while (activeUploads < maxConcurrency && chunkIndex < totalChunks) {
+            const currentChunkIndex = chunkIndex;
+            chunkIndex++;
+            activeUploads++;
+            
+            const start = currentChunkIndex * chunkSize;
+            const end = Math.min(file.size, start + chunkSize);
+            const chunk = file.slice(start, end);
+            
+            uploadChunk(chunk, currentChunkIndex);
+          }
+        }
+        
+        function uploadChunk(chunk, index) {
+          const xhr = new XMLHttpRequest();
+          const fd = new FormData();
+          fd.append("chunk", chunk);
+          fd.append("chunk_index", index);
+          fd.append("total_chunks", totalChunks);
+          fd.append("filename", file.name);
+          fd.append("upload_id", uploadId);
+          
+          xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable) {
+              chunkProgress[index] = e.loaded;
+              updateOverallProgress();
+            }
+          });
+          
+          xhr.onreadystatechange = () => {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+              activeUploads--;
+              if (xhr.status === 200) {
+                try {
+                  const resp = JSON.parse(xhr.responseText);
+                  if (resp.status === "chunk_saved") {
+                    chunkProgress[index] = chunk.size;
+                    updateOverallProgress();
+                    uploadNext();
+                  } else {
+                    failed = true;
+                    status("uploadStatus", "error", `❌ Chunk upload failed: ${resp.error}`);
+                    log(`Error: ${resp.error}`);
+                    cleanupAndReset();
+                    reject(new Error(resp.error));
+                  }
+                } catch (e) {
+                  failed = true;
+                  status("uploadStatus", "error", "❌ Response parsing error");
+                  log("Error parsing chunk upload response");
+                  cleanupAndReset();
+                  reject(e);
+                }
+              } else {
+                failed = true;
+                status("uploadStatus", "error", "❌ Network error during upload");
+                log("Network error during upload");
+                cleanupAndReset();
+                reject(new Error("Network error"));
+              }
+            }
+          };
+          
+          xhr.open("POST", `${API}/upload-chunk`);
+          xhr.send(fd);
+        }
+        
+        async function mergeChunks() {
+          status("uploadStatus", "info", "⏳ All chunks uploaded. Merging video...");
+          log("Merging chunks on server...");
+          try {
+            const res = await fetch(`${API}/merge-chunks`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                upload_id: uploadId,
+                filename: file.name,
+                total_chunks: totalChunks
+              })
+            });
+            const data = await res.json();
+            if (data.status === "success") {
+              uploadedFilename = data.filename;
+              updateUploadProgress(100);
+              status("uploadStatus", "success", `✅ ${data.message}`);
+              log("Upload complete and file merged!");
+              document.getElementById("generateBtn").disabled = false;
+              setTimeout(() => { container.style.display = "none"; }, 1000);
+              resolve();
+            } else {
+              status("uploadStatus", "error", `❌ Merge failed: ${data.error}`);
+              log(`Merge error: ${data.error}`);
+              reject(new Error(data.error));
+            }
+          } catch (e) {
+            status("uploadStatus", "error", `❌ Merge error: ${e.message}`);
+            log(`Merge error: ${e.message}`);
+            reject(e);
+          } finally {
+            cleanupAndReset();
+          }
+        }
+        
+        function cleanupAndReset() {
+          document.getElementById("uploadBtn").disabled = false;
+        }
+        
+        // Start initial batch
+        uploadNext();
+      });
+    }
+
+
+    function updateUploadProgress(percent) {
+      document.getElementById("uploadProgressFill").style.width = percent + "%";
+      document.getElementById("uploadProgressText").textContent = Math.round(percent) + "%";
+    }
+
+    async function generateShorts() {
+      if (!uploadedFilename) {
+        status("generateStatus", "error", "❌ Upload a video first");
+        return;
+      }
+
+      const duration = parseInt(document.getElementById("duration").value) || 45;
+      document.getElementById("generateBtn").disabled = true;
+      status("generateStatus", "info", `⏳ Generating ${duration}s clips...`);
+      log(`Starting generation (${duration}s clips)...`);
+
+      // Show generation progress
+      const container = document.getElementById("generateProgressContainer");
+      container.style.display = "block";
+
+      // Start polling progress
+      const taskId = uploadedFilename.split(".")[0];
+      let lastPercent = 0;
+      progressCheckInterval = setInterval(async () => {
+        try {
+          const resp = await fetch(`${API}/progress/${taskId}`);
+          const data = await resp.json();
+          if (data.percent !== undefined) {
+            updateGenerationProgress(data.percent, data.status);
+            lastPercent = data.percent;
+          }
+        } catch (e) {
+          console.error("Progress check failed:", e);
+        }
+      }, 300); // Poll every 300ms for smoother updates
+
+      try {
+        const resp = await fetch(`${API}/auto-shorts?filename=${uploadedFilename}&target_duration=${duration}`, {
+          method: "POST"
+        });
+        const data = await resp.json();
+        
+        clearInterval(progressCheckInterval);
+        updateGenerationProgress(100, "Complete!");
+        
+        if (data.total_shorts > 0) {
+          status("generateStatus", "success", `✅ Generated ${data.total_shorts} shorts!`);
+          log(`SUCCESS: ${data.total_shorts} shorts created`);
+          
+          // Display shorts
+          const shortsEl = document.getElementById("shorts");
+          shortsEl.innerHTML = "";
+          data.shorts.forEach(s => {
+            if (!s.error) {
+              const card = document.createElement("div");
+              card.className = "short-card";
+              card.innerHTML = `
+                <div>${s.filename}</div>
+                <small>${s.file_size_mb}MB | ${s.duration.toFixed(1)}s</small><br/>
+                <a href="${API}${s.download_url}" download>⬇️ Download</a>
+              `;
+              shortsEl.appendChild(card);
+            }
+          });
+
+          document.getElementById("downloadAllBtn").style.display = "block";
+          document.getElementById("clearBtn").style.display = "block";
+          setTimeout(() => { container.style.display = "none"; }, 1000);
+        } else {
+          status("generateStatus", "error", `❌ ${data.error || "Failed to generate"}`);
+          log(`Error: ${data.error}`);
+        }
+      } catch (e) {
+        clearInterval(progressCheckInterval);
+        status("generateStatus", "error", `❌ ${e.message}`);
+        log(`Error: ${e.message}`);
+      } finally {
+        document.getElementById("generateBtn").disabled = false;
+      }
+    }
+
+    function updateGenerationProgress(percent, status_msg) {
+      document.getElementById("generateProgressFill").style.width = percent + "%";
+      document.getElementById("generateProgressText").textContent = Math.round(percent) + "%";
+      document.getElementById("generateClipText").textContent = status_msg || "Processing...";
+    }
+
+    async function downloadAllZip() {
+      log("Downloading ZIP...");
+      const link = document.createElement("a");
+      link.href = `${API}/download-all-zip`;
+      link.download = "shorts.zip";
+      link.click();
+    }
+
+    async function clearOutputs() {
+      if (!confirm("Clear all shorts?")) return;
+      try {
+        await fetch(`${API}/clear-outputs`, { method: "POST" });
+        document.getElementById("shorts").innerHTML = "";
+        document.getElementById("downloadAllBtn").style.display = "none";
+        document.getElementById("clearBtn").style.display = "none";
+        log("Cleared all shorts");
+      } catch (e) {
+        log(`Error: ${e.message}`);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+node_modules/
+frontend/node_modules/
+backend/output/
+backend/upload/
+backend/outputs/
+backend/uploads/
+outputs/
+uploads/
+progress/
+.env
+.DS_Store

@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="Auto Shorts Generator — split long videos into shareable short clips instantly."/>
+  <title>Auto Shorts Generator</title>
+
+  <!-- Preconnect for faster font load -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ── Reset & tokens ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0b0f1a;
+      --surface:  #111827;
+      --card:     #1a2235;
+      --border:   #2a3650;
+      --accent:   #6366f1;
+      --accent2:  #8b5cf6;
+      --green:    #22c55e;
+      --red:      #ef4444;
+      --yellow:   #f59e0b;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   14px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      width: 100%;
+      padding: 18px 40px;
+      background: rgba(17,24,39,0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.3px; }
+    .badge {
+      margin-left: auto;
+      font-size: 0.68rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #a5b4fc;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    /* ── API status indicator ────────────────────────────────────── */
+    .api-status {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.78rem; color: var(--muted);
+    }
+    .api-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--yellow);
+      transition: background 0.4s;
+      flex-shrink: 0;
+    }
+    .api-dot.online  { background: var(--green); animation: pulse 2s infinite; }
+    .api-dot.offline { background: var(--red); }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.45); }
+      50%       { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .container {
+      width: 100%; max-width: 820px;
+      padding: 36px 20px;
+      display: flex; flex-direction: column;
+      gap: 22px;
+    }
+
+    /* ── Cards ──────────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: rgba(99,102,241,0.35); }
+
+    .card-title {
+      font-size: 0.82rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--muted); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .step-num {
+      width: 22px; height: 22px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 6px;
+      font-size: 0.7rem; font-weight: 700; color: white;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Drop zone ──────────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 44px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.22s, background 0.22s;
+      position: relative;
+    }
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(99,102,241,0.05);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-icon { font-size: 2.4rem; margin-bottom: 10px; }
+    .drop-zone p { color: var(--muted); font-size: 0.88rem; }
+    .drop-zone p span { color: var(--accent); font-weight: 500; }
+    #selected-file { margin-top: 10px; font-size: 0.83rem; color: var(--green); font-weight: 500; min-height: 1.2em; }
+
+    /* ── Form ───────────────────────────────────────────────────── */
+    .form-group { margin-bottom: 12px; }
+    .form-group label {
+      display: block; font-size: 0.78rem; font-weight: 500;
+      color: var(--muted); margin-bottom: 6px; letter-spacing: 0.3px;
+    }
+    .form-group input[type="number"] {
+      width: 100%; padding: 9px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text);
+      font-family: 'Inter', sans-serif; font-size: 0.88rem;
+      outline: none; transition: border-color 0.2s;
+    }
+    .form-group input[type="number"]:focus { border-color: var(--accent); }
+
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 20px; border: none; border-radius: 9px;
+      font-family: 'Inter', sans-serif; font-size: 0.86rem;
+      font-weight: 600; cursor: pointer;
+      transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s, color 0.18s;
+      letter-spacing: 0.3px; white-space: nowrap;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px rgba(99,102,241,0.38);
+    }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+    .btn-secondary {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+    /* ── Progress bar ────────────────────────────────────────────── */
+    .progress-wrap { margin-top: 14px; display: none; }
+    .progress-wrap.visible { display: block; }
+    .progress-bar {
+      height: 4px; background: var(--border);
+      border-radius: 4px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 4px;
+      transition: width 0.35s ease;
+      will-change: width;
+    }
+    .progress-label {
+      margin-top: 6px; font-size: 0.76rem; color: var(--muted);
+      display: flex; justify-content: space-between;
+    }
+
+    /* ── Log ─────────────────────────────────────────────────────── */
+    .log {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px;
+      font-size: 0.8rem; max-height: 176px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 5px;
+      scroll-behavior: smooth;
+    }
+    .log-entry {
+      display: flex; align-items: flex-start; gap: 8px;
+      animation: fadeSlideIn 0.2s ease;
+    }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(3px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      margin-top: 5px; flex-shrink: 0;
+    }
+    .dot-info    { background: var(--accent); }
+    .dot-success { background: var(--green); }
+    .dot-error   { background: var(--red); }
+    .dot-warn    { background: var(--yellow); }
+
+    /* ── Shorts grid ─────────────────────────────────────────────── */
+    .shorts-grid { display: flex; flex-direction: column; gap: 8px; }
+    .short-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 11px 14px; border-radius: 8px;
+      transition: border-color 0.2s;
+    }
+    .short-item:hover { border-color: rgba(99,102,241,0.35); }
+    .short-meta { flex: 1; min-width: 0; }
+    .short-name {
+      font-weight: 600; color: var(--text); font-size: 0.88rem;
+      margin-bottom: 3px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .short-info { font-size: 0.78rem; color: var(--muted); }
+    .short-actions { display: flex; gap: 8px; flex-shrink: 0; margin-left: 12px; }
+
+    .placeholder { color: var(--muted); font-style: italic; font-size: 0.88rem; }
+
+    /* ── Hint text ───────────────────────────────────────────────── */
+    .hint { font-size: 0.83rem; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      header { padding: 14px 16px; }
+      .container { padding: 24px 14px; }
+      .card { padding: 18px; }
+      .short-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .short-actions { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo" aria-hidden="true">🎬</div>
+  <h1>Auto Shorts Generator</h1>
+  <div class="api-status" aria-live="polite">
+    <div class="api-dot" id="api-dot"></div>
+    <span id="api-status-text">Checking server…</span>
+  </div>
+  <div class="badge" aria-label="Beta version">BETA</div>
+</header>
+
+<main class="container">
+
+  <!-- Step 1: Upload -->
+  <section class="card" aria-labelledby="step1-title">
+    <h2 class="card-title" id="step1-title">
+      <span class="step-num" aria-hidden="true">1</span>Upload Long Video
+    </h2>
+    <div class="drop-zone" id="drop-zone" role="button" aria-label="File upload area — drag and drop or click to browse">
+      <input type="file" id="file-input" accept="video/*" aria-label="Select video file"/>
+      <div class="drop-icon" aria-hidden="true">📁</div>
+      <p>Drag &amp; drop your video here, or <span>browse</span></p>
+      <p id="selected-file" aria-live="polite"></p>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="upload-btn" onclick="uploadVideo()" disabled>
+        ⬆️ Upload Video
+      </button>
+    </div>
+    <div class="progress-wrap" id="upload-progress">
+      <div class="progress-bar"><div class="progress-fill" id="upload-fill" style="width:0%"></div></div>
+      <div class="progress-label"><span id="upload-pct">0%</span><span id="upload-eta"></span></div>
+    </div>
+  </section>
+
+  <!-- Step 2: Generate Shorts -->
+  <section class="card" aria-labelledby="step2-title">
+    <h2 class="card-title" id="step2-title">
+      <span class="step-num" aria-hidden="true">2</span>Generate Shorts
+    </h2>
+    <p class="hint">Automatically split the video into fixed-length clips. Stream copy means <strong>no re-encoding</strong> — blazing fast.</p>
+    <div class="form-group">
+      <label for="auto-target">Seconds per short (15 – 120)</label>
+      <input id="auto-target" type="number" value="45" min="15" max="120"/>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="auto-btn" onclick="autoGenerateShorts()" disabled>
+        ⚡ Generate Shorts
+      </button>
+      <button class="btn btn-secondary" id="view-shorts-btn" onclick="listShorts()">
+        📁 View All Shorts
+      </button>
+    </div>
+    <div class="progress-wrap" id="auto-progress">
+      <div class="progress-bar"><div class="progress-fill" id="auto-fill" style="width:0%"></div></div>
+      <div class="progress-label"><span id="auto-pct">0%</span><span id="auto-status-msg"></span></div>
+    </div>
+  </section>
+
+  <!-- Generated Shorts -->
+  <section class="card" aria-labelledby="shorts-title">
+    <h2 class="card-title" id="shorts-title">Generated Shorts</h2>
+    <div class="btn-row" style="margin-top:0; margin-bottom:12px;">
+      <a class="btn btn-secondary" id="download-all-btn" href="http://localhost:8000/download-all-zip"
+         download="shorts.zip" style="display:none;" aria-label="Download all shorts as ZIP">
+        📦 Download All as ZIP
+      </a>
+      <button class="btn btn-secondary" id="clear-btn" onclick="clearOutputs()" style="display:none;">
+        🗑️ Clear All
+      </button>
+    </div>
+    <div id="shorts-list" aria-live="polite" style="min-height:60px">
+      <p class="placeholder">No shorts generated yet. Upload a video and click "Generate Shorts".</p>
+    </div>
+  </section>
+
+  <!-- Activity Log -->
+  <section class="card" aria-labelledby="log-title">
+    <h2 class="card-title" id="log-title">Activity Log</h2>
+    <div class="log" id="log" role="log" aria-live="polite" aria-label="Activity log"></div>
+  </section>
+
+</main>
+
+<script>
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * CONFIGURATION
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  const API = "http://localhost:8000";
+  const MAX_LOG_ENTRIES = 80;          // Cap log size to avoid DOM bloat
+  const API_CHECK_INTERVAL_MS = 15000; // Health check every 15s (was 5s)
+  const UPLOAD_CHUNK_SIZE = 10 * 1024 * 1024;  // 10 MB
+  const UPLOAD_CONCURRENCY = 3;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * CACHED DOM REFERENCES (queried once at startup)
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  const $ = id => document.getElementById(id);
+  const DOM = {
+    apiDot:          $("api-dot"),
+    apiText:         $("api-status-text"),
+    dropZone:        $("drop-zone"),
+    fileInput:       $("file-input"),
+    selectedFile:    $("selected-file"),
+    uploadBtn:       $("upload-btn"),
+    uploadProgress:  $("upload-progress"),
+    uploadFill:      $("upload-fill"),
+    uploadPct:       $("upload-pct"),
+    uploadEta:       $("upload-eta"),
+    autoBtn:         $("auto-btn"),
+    autoTarget:      $("auto-target"),
+    autoProgress:    $("auto-progress"),
+    autoFill:        $("auto-fill"),
+    autoPct:         $("auto-pct"),
+    autoStatusMsg:   $("auto-status-msg"),
+    shortsList:      $("shorts-list"),
+    downloadAllBtn:  $("download-all-btn"),
+    clearBtn:        $("clear-btn"),
+    log:             $("log"),
+  };
+
+  let uploadedFilename  = null;
+  let progressInterval  = null;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * LOGGING  (XSS-safe via createTextNode)
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  function log(msg, type = "info") {
+    // Trim oldest entries to keep DOM lean
+    while (DOM.log.children.length >= MAX_LOG_ENTRIES) {
+      DOM.log.removeChild(DOM.log.firstChild);
+    }
+    const entry = document.createElement("div");
+    entry.className = "log-entry";
+
+    const dot = document.createElement("div");
+    dot.className = `dot dot-${type}`;
+
+    const text = document.createElement("span");
+    text.appendChild(document.createTextNode(msg));
+
+    entry.appendChild(dot);
+    entry.appendChild(text);
+    DOM.log.appendChild(entry);
+    DOM.log.scrollTop = DOM.log.scrollHeight;
+  }
+
+  log("Ready — upload a video to get started.", "info");
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * PROGRESS HELPERS
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  function showProgress(wrap, fill, pctEl, statusEl, pct, statusMsg) {
+    wrap.classList.add("visible");
+    fill.style.width = pct + "%";
+    if (pctEl)    pctEl.textContent    = Math.round(pct) + "%";
+    if (statusEl) statusEl.textContent = statusMsg || "";
+  }
+
+  function hideProgress(wrap) {
+    wrap.classList.remove("visible");
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * API HEALTH CHECK
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  async function checkAPI() {
+    try {
+      const r = await fetch(API + "/", { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        DOM.apiDot.className  = "api-dot online";
+        DOM.apiText.textContent = "Server online";
+      } else { throw new Error("non-ok"); }
+    } catch {
+      DOM.apiDot.className  = "api-dot offline";
+      DOM.apiText.textContent = "Server offline";
+    }
+  }
+  checkAPI();
+  const _apiTimer = setInterval(checkAPI, API_CHECK_INTERVAL_MS);
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * DRAG-AND-DROP
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  DOM.dropZone.addEventListener("dragover", e => {
+    e.preventDefault();
+    DOM.dropZone.classList.add("drag-over");
+  });
+  DOM.dropZone.addEventListener("dragleave", () => DOM.dropZone.classList.remove("drag-over"));
+  DOM.dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    DOM.dropZone.classList.remove("drag-over");
+    if (e.dataTransfer.files[0]) {
+      DOM.fileInput.files = e.dataTransfer.files;
+      onFileSelected();
+    }
+  });
+  DOM.fileInput.addEventListener("change", onFileSelected);
+
+  function onFileSelected() {
+    const f = DOM.fileInput.files[0];
+    if (!f) return;
+    const sizeMB = (f.size / 1024 / 1024).toFixed(1);
+    DOM.selectedFile.textContent = `📎 ${f.name} (${sizeMB} MB)`;
+    DOM.uploadBtn.disabled = false;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * UPLOAD  (parallel chunked)
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  async function uploadVideo() {
+    const file = DOM.fileInput.files[0];
+    if (!file) return;
+
+    DOM.uploadBtn.disabled = true;
+    DOM.uploadBtn.textContent = "⏳ Uploading…";
+    showProgress(DOM.uploadProgress, DOM.uploadFill, DOM.uploadPct, DOM.uploadEta, 0, "Starting…");
+
+    const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
+    const uploadId    = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const chunkBytes  = new Array(totalChunks).fill(0); // bytes sent per chunk
+
+    log(`Uploading "${file.name}" in ${totalChunks} chunk(s)…`, "info");
+
+    let startTime   = Date.now();
+    let chunkIndex  = 0;
+    let active      = 0;
+    let failed      = false;
+
+    function updateProgress() {
+      const sent    = chunkBytes.reduce((a, b) => a + b, 0);
+      const pct     = Math.min(99, (sent / file.size) * 100);
+      const elapsed = (Date.now() - startTime) / 1000;
+      const speed   = sent / elapsed;           // bytes/sec
+      const eta     = speed > 0 ? Math.round((file.size - sent) / speed) : 0;
+      showProgress(DOM.uploadProgress, DOM.uploadFill, DOM.uploadPct, DOM.uploadEta,
+                   pct, eta > 0 ? `~${eta}s left` : "");
+      DOM.uploadBtn.textContent = `⏳ ${Math.round(pct)}%`;
+    }
+
+    return new Promise((resolve, reject) => {
+      function next() {
+        if (failed) return;
+        if (chunkIndex >= totalChunks) {
+          if (active === 0) mergeChunks();
+          return;
+        }
+        while (active < UPLOAD_CONCURRENCY && chunkIndex < totalChunks) {
+          sendChunk(chunkIndex++);
+        }
+      }
+
+      function sendChunk(idx) {
+        active++;
+        const start = idx * UPLOAD_CHUNK_SIZE;
+        const blob  = file.slice(start, Math.min(file.size, start + UPLOAD_CHUNK_SIZE));
+        const fd    = new FormData();
+        fd.append("chunk", blob);
+        fd.append("chunk_index", idx);
+        fd.append("total_chunks", totalChunks);
+        fd.append("filename", file.name);
+        fd.append("upload_id", uploadId);
+
+        const xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener("progress", e => {
+          if (e.lengthComputable) { chunkBytes[idx] = e.loaded; updateProgress(); }
+        });
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState !== XMLHttpRequest.DONE) return;
+          active--;
+          if (failed) return;
+          if (xhr.status === 200) {
+            try {
+              const resp = JSON.parse(xhr.responseText);
+              if (resp.status === "chunk_saved") {
+                chunkBytes[idx] = blob.size;
+                updateProgress();
+                next();
+              } else { fail("Chunk error: " + (resp.detail || resp.error || "unknown")); }
+            } catch { fail("Response parse error"); }
+          } else { fail("Network error (chunk " + idx + ")"); }
+        };
+        xhr.open("POST", `${API}/upload-chunk`);
+        xhr.send(fd);
+      }
+
+      async function mergeChunks() {
+        log("All chunks sent — merging on server…", "info");
+        try {
+          const res  = await fetch(`${API}/merge-chunks`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ upload_id: uploadId, filename: file.name, total_chunks: totalChunks }),
+          });
+          const data = await res.json();
+          if (res.ok && data.status === "success") {
+            uploadedFilename = data.filename;
+            showProgress(DOM.uploadProgress, DOM.uploadFill, DOM.uploadPct, DOM.uploadEta, 100, "Done!");
+            log(`✅ Uploaded: ${data.filename} (${data.size_gb} GB)`, "success");
+            DOM.autoBtn.disabled = false;
+            DOM.uploadBtn.textContent = "⬆️ Upload Video";
+            DOM.uploadBtn.disabled   = false;
+            resolve();
+          } else { fail("Merge failed: " + (data.detail || data.error || "unknown")); }
+        } catch (e) { fail("Merge error: " + e.message); }
+      }
+
+      function fail(msg) {
+        failed = true;
+        log("❌ " + msg, "error");
+        DOM.uploadBtn.textContent = "⬆️ Upload Video";
+        DOM.uploadBtn.disabled   = false;
+        hideProgress(DOM.uploadProgress);
+        reject(new Error(msg));
+      }
+
+      next();
+    });
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * GENERATE SHORTS
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  async function autoGenerateShorts() {
+    if (!uploadedFilename) { log("Upload a video first!", "warn"); return; }
+
+    const target = parseInt(DOM.autoTarget.value || "45", 10);
+    DOM.autoBtn.disabled = true;
+    DOM.autoBtn.textContent = "⚡ Generating…";
+    showProgress(DOM.autoProgress, DOM.autoFill, DOM.autoPct, DOM.autoStatusMsg, 0, "Starting…");
+    log(`Generating ${target}s clips from "${uploadedFilename}"…`, "info");
+
+    // Adaptive polling: starts fast, slows after confirming progress
+    const taskId = uploadedFilename.replace(/\.[^.]+$/, "");
+    let lastPct   = 0;
+    let pollMs    = 350;
+
+    function schedulePoll() {
+      progressInterval = setTimeout(async () => {
+        try {
+          const r = await fetch(`${API}/progress/${taskId}`);
+          const d = await r.json();
+          if (typeof d.percent === "number") {
+            showProgress(DOM.autoProgress, DOM.autoFill, DOM.autoPct, DOM.autoStatusMsg,
+                         d.percent, d.status || "");
+            if (d.percent > lastPct) { lastPct = d.percent; pollMs = 350; }
+            else                     { pollMs = Math.min(pollMs + 100, 1200); }
+          }
+        } catch { /* ignore transient errors */ }
+        if (progressInterval !== null) schedulePoll();
+      }, pollMs);
+    }
+    schedulePoll();
+
+    try {
+      const url = `${API}/auto-shorts?filename=${encodeURIComponent(uploadedFilename)}&target_duration=${target}`;
+      const res  = await fetch(url, { method: "POST" });
+      const data = await res.json();
+
+      // Stop polling
+      clearTimeout(progressInterval);
+      progressInterval = null;
+
+      if (res.ok && data.shorts && data.shorts.length > 0) {
+        showProgress(DOM.autoProgress, DOM.autoFill, DOM.autoPct, DOM.autoStatusMsg, 100, "Complete!");
+        log(`✅ Created ${data.total_shorts} shorts (${data.file_size_gb} GB source).`, "success");
+        renderShortsList(data.shorts);
+      } else {
+        log("❌ " + (data.detail || data.error || "Generation failed"), "error");
+      }
+    } catch (e) {
+      clearTimeout(progressInterval);
+      progressInterval = null;
+      log("❌ Generate error: " + e.message, "error");
+    } finally {
+      DOM.autoBtn.disabled = false;
+      DOM.autoBtn.textContent = "⚡ Generate Shorts";
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * LIST & RENDER SHORTS
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  async function listShorts() {
+    try {
+      const res  = await fetch(`${API}/list-shorts`);
+      const data = await res.json();
+      if (data.shorts && data.shorts.length > 0) {
+        log(`📁 Found ${data.count} shorts.`, "info");
+        renderShortsList(data.shorts);
+      } else {
+        log("No shorts found.", "warn");
+        DOM.shortsList.innerHTML = '<p class="placeholder">No shorts available yet.</p>';
+      }
+    } catch (e) { log("Error listing shorts: " + e.message, "error"); }
+  }
+
+  function renderShortsList(shorts) {
+    // Build DOM via fragment — avoids repeated reflows
+    const frag = document.createDocumentFragment();
+    const grid = document.createElement("div");
+    grid.className = "shorts-grid";
+
+    shorts.forEach(s => {
+      if (s.error) return; // skip failed clips silently
+
+      const item = document.createElement("div");
+      item.className = "short-item";
+
+      const meta = document.createElement("div");
+      meta.className = "short-meta";
+
+      const name = document.createElement("div");
+      name.className = "short-name";
+      name.appendChild(document.createTextNode(s.filename));
+
+      const info = document.createElement("div");
+      info.className = "short-info";
+      const parts = [];
+      if (s.file_size_mb) parts.push(s.file_size_mb + " MB");
+      if (s.duration_formatted || s.duration) parts.push(s.duration_formatted || s.duration + "s");
+      info.appendChild(document.createTextNode(parts.join(" · ")));
+
+      meta.appendChild(name);
+      meta.appendChild(info);
+
+      const actions = document.createElement("div");
+      actions.className = "short-actions";
+
+      const dl = document.createElement("a");
+      dl.className = "btn btn-secondary";
+      dl.href      = API + (s.download_url || `/download/${s.filename}`);
+      dl.download  = s.filename;
+      dl.setAttribute("aria-label", `Download ${s.filename}`);
+      dl.appendChild(document.createTextNode("⬇️ Download"));
+
+      actions.appendChild(dl);
+      item.appendChild(meta);
+      item.appendChild(actions);
+      grid.appendChild(item);
+    });
+
+    frag.appendChild(grid);
+    DOM.shortsList.innerHTML = "";
+    DOM.shortsList.appendChild(frag);
+
+    // Show action buttons if we have any successful shorts
+    const successCount = shorts.filter(s => !s.error).length;
+    if (successCount > 0) {
+      DOM.downloadAllBtn.style.display = "inline-flex";
+      DOM.clearBtn.style.display       = "inline-flex";
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * CLEAR OUTPUTS
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  async function clearOutputs() {
+    if (!confirm("Delete all generated shorts?")) return;
+    try {
+      const res = await fetch(`${API}/clear-outputs`, { method: "POST" });
+      const d   = await res.json();
+      log(`🗑️ Cleared ${d.files_deleted} file(s).`, "info");
+      DOM.shortsList.innerHTML = '<p class="placeholder">No shorts generated yet.</p>';
+      DOM.downloadAllBtn.style.display = "none";
+      DOM.clearBtn.style.display       = "none";
+    } catch (e) { log("Clear error: " + e.message, "error"); }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * CLEANUP on page unload
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  window.addEventListener("beforeunload", () => {
+    clearInterval(_apiTimer);
+    if (progressInterval) clearTimeout(progressInterval);
+  });
+</script>
+</body>
+</html>

@@ -8,5 +8,3 @@ This project now runs as a Python/FastAPI application for uploading long videos 
 cd backend
 python run.py
 ```
-
-Then open http://localhost:8000/ in your browser.

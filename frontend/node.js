@@ -4,7 +4,7 @@ import { useState } from "react";
 import axios from "axios";
 
 export default function Home() {
-
+  console.log("Home component rendered");
   const [file, setFile] = useState(null);
 
   const uploadVideo = async () => {
